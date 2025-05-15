@@ -147,6 +147,8 @@ class Stage(Instrument):
 
 class StageUI(QtWidgets.QWidget, UiTools):
     update_ui = QtCore.Signal([int], [str])
+    
+    limit = [10, 10, 10]
 
     def __init__(self, stage, parent=None, stage_step_min=1e-9, stage_step_max=1e-3, default_step=1e-6):
         assert isinstance(stage, Stage), "instrument must be a Stage"
@@ -161,6 +163,8 @@ class StageUI(QtWidgets.QWidget, UiTools):
         self.update_positions()
 
     def move_axis_absolute(self, position, axis):
+        if position > self.limit[axis]:
+            return
         self.stage.move(position, axis=axis, relative=False)
         if type(axis) == str:
             self.update_ui[str].emit(axis)
@@ -169,8 +173,11 @@ class StageUI(QtWidgets.QWidget, UiTools):
 
     def move_axis_relative(self, index, axis, dir=1):
         current_position = self.stage.position[index]
+        
+        result = current_position - self.step_size[index]
+        if result > self.limit[axis]:
+            return
         if dir == -1:
-            result = current_position - self.step_size[index]
             if result <= 0:
                 print("Cannot go negative coordinate")
                 self.stage.home(axis=axis)
@@ -222,7 +229,17 @@ class StageUI(QtWidgets.QWidget, UiTools):
             top_layout.insertWidget(i, rst_button)  # Insert before "Update Positions"
             self.rst_buttons.append(rst_button)
         
-        # Rest of your method...
+
+        move_group = QtWidgets.QGroupBox("Quick Movement")
+        move_layout = QtWidgets.QGridLayout()
+        
+        finish_btn = QtWidgets.QPushButton(f"Move Z to 10mm")
+        finish_btn.clicked.connect(partial(self.move_axis_absolute, 10, 2))
+        move_layout.addWidget(finish_btn, 0, 0)
+            
+        move_group.setLayout(move_layout)
+        self.verticalLayout.addWidget(move_group)
+
         path = os.path.dirname(os.path.realpath(nplab.ui.__file__))
         icon_size = QtCore.QSize(12, 12)
         self.positions = []
@@ -336,6 +353,30 @@ class StageUI(QtWidgets.QWidget, UiTools):
             minus_button.setIconSize(icon_size)
             minus_button.resize(icon_size)
 
+        # Add command section at the bottom
+        command_group = QtWidgets.QGroupBox("Direct Controller Command")
+        command_layout = QtWidgets.QHBoxLayout()
+        
+        self.command_entry = QtWidgets.QLineEdit()
+        self.command_entry.setPlaceholderText("Enter command...")
+        send_button = QtWidgets.QPushButton("Send")
+        send_button.clicked.connect(self.send_direct_command)
+        
+        command_layout.addWidget(self.command_entry)
+        command_layout.addWidget(send_button)
+        command_group.setLayout(command_layout)
+        self.verticalLayout.addWidget(command_group)
+
+
+    def send_direct_command(self):
+        tosend = self.command_entry.text()
+        print(tosend)
+        msg = tosend + '\r\n'
+
+        #self.ser.write(tosend)
+        self.stage.ser.write(msg.encode())
+
+        self.stage.ser.flush()
     def button_pressed(self, *args, **kwargs):
         sender = self.sender()
         if sender in self.set_position_buttons:

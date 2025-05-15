@@ -381,6 +381,8 @@ class SMC100(SerialInstrument, Stage):
 
     def stop(self):
         self._send_cmd('ST')
+    
+
 
     def get_status(self):
         """

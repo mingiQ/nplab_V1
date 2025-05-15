@@ -68,6 +68,7 @@ class ShowGUIMixin(object):
             ui = self.__gui_instance
             # After creating the window (self is your QWidget/QMainWindow)
             ui.setWindowFlags(ui.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+            print("hi")
 
             ui.show()
             ui.activateWindow() #flash the taskbar entry to make it obvious
