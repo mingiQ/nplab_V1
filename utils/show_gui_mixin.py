@@ -10,6 +10,7 @@ author: Richard Bowman
 """
 from __future__ import print_function
 from builtins import object
+from PyQt5 import QtCore
 
 
 class ShowGUIMixin(object):
@@ -65,6 +66,9 @@ class ShowGUIMixin(object):
                 # told to make a new one
                 self.__gui_instance = self.get_qt_ui()
             ui = self.__gui_instance
+            # After creating the window (self is your QWidget/QMainWindow)
+            ui.setWindowFlags(ui.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+
             ui.show()
             ui.activateWindow() #flash the taskbar entry to make it obvious
             if blocking:

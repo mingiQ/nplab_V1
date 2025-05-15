@@ -168,7 +168,15 @@ class StageUI(QtWidgets.QWidget, UiTools):
             self.update_ui[int].emit(axis)
 
     def move_axis_relative(self, index, axis, dir=1):
+        current_position = self.stage.position[index]
+        if dir == -1:
+            result = current_position - self.step_size[index]
+            if result <= 0:
+                print("Cannot go negative coordinate")
+                self.stage.home(axis=axis)
+
         self.stage.move(dir * self.step_size[index], axis=axis, relative=True)
+          
         if type(axis) == str:
             #    axis = QtCore.QString(axis)
             self.update_ui[str].emit(axis)
@@ -193,29 +201,36 @@ class StageUI(QtWidgets.QWidget, UiTools):
     
 
     def create_axes_layout(self, default_step=1e-6, arrange_buttons='cross', rows=None):
-        """Layout of the PyQt widgets for absolute and relative movement of all axis
+        
+        cartesean = ('X', 'Z', 'extra')
 
-        :param default_step:
-        :param arrange_buttons: either 'cross' or 'stack'. If 'cross', assumes the stages axes are x,y,z movement,
-        placing the arrows in an intuitive cross pattern
-        :param rows: number of rows per column when distributing the QtWidgets
-        :return:
-        """
         if rows is None:
             rows = np.ceil(np.sqrt(len(self.stage.axis_names)))
-        rows = int(rows)  # int is needed for the old_div and the modulo operations
+        rows = int(rows)
 
         uic.loadUi(os.path.join(os.path.dirname(__file__), 'stage.ui'), self)
-
         
         self.update_pos_button.clicked.connect(partial(self.update_positions, None))
+        
+        # Add per-axis RST buttons at the top
+        top_layout = self.horizontalLayout
+        self.rst_buttons = []  # Store buttons if needed later
+        
+        for i, ax in enumerate(self.stage.axis_names):
+            rst_button = QtWidgets.QPushButton(f"RST {cartesean[i]}", self)
+            rst_button.clicked.connect(self.homing_stage)
+            top_layout.insertWidget(i, rst_button)  # Insert before "Update Positions"
+            self.rst_buttons.append(rst_button)
+        
+        # Rest of your method...
         path = os.path.dirname(os.path.realpath(nplab.ui.__file__))
         icon_size = QtCore.QSize(12, 12)
         self.positions = []
         self.set_positions = []
         self.set_position_buttons = []
         self.set_state_buttons = []
-        self.set_rst_buttons = []
+
+
         for i, ax in enumerate(self.stage.axis_names):
             # Top part of the UI: Absolute movement and enable/disable stage
             col = 4 * ((i// rows))
@@ -242,22 +257,25 @@ class StageUI(QtWidgets.QWidget, UiTools):
             set_state_button.toggled.connect(self.handle_toggled)
             self.set_state_buttons.append(set_state_button)
 
-            set_rst_button = QtWidgets.QPushButton('', self)
-            set_rst_button.setIcon(QtGui.QIcon(os.path.join(path, 'zero.png')))
-            set_rst_button.setIconSize(icon_size)
-            set_rst_button.resize(icon_size)
-            set_rst_button.clicked.connect(self.homing_stage)
-            self.set_rst_buttons.append(set_rst_button)
+            # set_rst_button = QtWidgets.QPushButton('', self)
+            # #set_rst_button.setMinimumWidth(100)
+            # set_rst_button.setIcon(QtGui.QIcon(os.path.join(path, 'zero.png')))
+            # set_rst_button.setIconSize(icon_size)
+            # set_rst_button.resize(icon_size)
+            # set_rst_button.clicked.connect(self.homing_stage)
+            # self.set_rst_buttons.append(set_rst_button)
             
 
             # for each stage axis add a label, a field for the current position,
             # a field to set a new position and a button to set a new position ..
-            self.info_layout.addWidget(QtWidgets.QLabel(str(ax), self), i % rows, col)
+
+            self.info_layout.addWidget(QtWidgets.QLabel(str(cartesean[i]), self), i % rows, col)
             self.info_layout.addWidget(position, i % rows, col + 1)
             self.info_layout.addWidget(set_position, i % rows, col + 2)
             self.info_layout.addWidget(set_position_button, i % rows, col + 3)
             self.info_layout.addWidget(set_state_button, i % rows, col + 4)
-            self.info_layout.addWidget(set_rst_button, i % rows, col + 5)
+            self.info_layout.setSpacing(20)
+            #self.info_layout.addWidget(set_rst_button, i % rows, col + 5)
 
             # Bottom part of the UI: Relative movements
 
@@ -281,7 +299,7 @@ class StageUI(QtWidgets.QWidget, UiTools):
             step_str = engineering_format(default_step, self.stage.unit)
             step_index = list(self.step_size_values.keys()).index(step_str)
             step_size_select.setCurrentIndex(step_index)
-            layout.addWidget(QtWidgets.QLabel(str(ax), self), i % rows, 5 + offset)
+            layout.addWidget(QtWidgets.QLabel(str(cartesean[i]), self), i % rows, 5 + offset)
             layout.addWidget(step_size_select, i % rows, 6 + offset)
             if i % 3 == 0 and arrange_buttons == 'cross':
                 layout.addItem(QtWidgets.QSpacerItem(12, 0), 0, 4)
@@ -297,13 +315,13 @@ class StageUI(QtWidgets.QWidget, UiTools):
                     layout.addWidget(minus_button, 1, 0)
                     layout.addWidget(plus_button, 1, 2)
                 elif i % rows == 1:
-                    plus_button.setIcon(QtGui.QIcon(os.path.join(path, 'up.png')))
-                    minus_button.setIcon(QtGui.QIcon(os.path.join(path, 'down.png')))
-                    layout.addWidget(plus_button, 0, 1)
-                    layout.addWidget(minus_button, 2, 1)
+                    plus_button.setIcon(QtGui.QIcon(os.path.join(path, 'down.png')))
+                    minus_button.setIcon(QtGui.QIcon(os.path.join(path, 'up.png')))
+                    layout.addWidget(plus_button, 2, 1)
+                    layout.addWidget(minus_button, 0, 1)
                 elif i % rows == 2:
-                    plus_button.setIcon(QtGui.QIcon(os.path.join(path, 'up.png')))
-                    minus_button.setIcon(QtGui.QIcon(os.path.join(path, 'down.png')))
+                    plus_button.setIcon(QtGui.QIcon(os.path.join(path, 'down.png')))
+                    minus_button.setIcon(QtGui.QIcon(os.path.join(path, 'up.png')))
                     layout.addWidget(plus_button, 0, 3)
                     layout.addWidget(minus_button, 2, 3)
             elif arrange_buttons == 'stack':
@@ -342,11 +360,11 @@ class StageUI(QtWidgets.QWidget, UiTools):
     def homing_stage(self):
         sender = self.sender()
         #if isinstance(self.stage, SMC100):
-        if sender in self.set_rst_buttons:
-            index = self.set_rst_buttons.index(sender)
+        if sender in self.rst_buttons:
+            index = self.rst_buttons.index(sender)
             axis = self.stage.axis_names[index]
         
-        self.stage.reset_and_configure()
+        self.stage.reset_and_configure_each(axis)
 
 
     def on_activated(self, index, value):
@@ -387,7 +405,8 @@ class DummyStage(Stage):
 
     def __init__(self):
         super(DummyStage, self).__init__()
-        self.axis_names = ('x1', 'y1', 'z1', 'x2', 'y2', 'z2')
+        #self.axis_names = ('x1', 'y1', 'z1', 'x2', 'y2', 'z2')
+        self.axis_names = (1,2,)
         self.max_voltage_levels = [4095 for ch in range(len(self.axis_names))]
         self._position = np.zeros((len(self.axis_names)), dtype=np.float64)
         self.piezo_levels = [50,50,50,50,50,50]
@@ -415,7 +434,8 @@ class DummyStage(Stage):
     position = property(get_position)
 
     def get_qt_ui(self):
-        return PiezoStageUI(self,show_z_pos=False)
+        #return StageUI(self,show_z_pos=False)
+        return StageUI(self, stage_step_min=1E-7, stage_step_max=1e-2, default_step=1e-7)
 
 
 

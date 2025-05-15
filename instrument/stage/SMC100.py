@@ -17,7 +17,7 @@ from nplab.instrument.serial_instrument import SerialInstrument
 from nplab.instrument.stage import Stage
 
 # never wait for more than this e.g. during wait_states
-MAX_WAIT_TIME_SEC = 20
+MAX_WAIT_TIME_SEC = 60
 
 # time to wait after sending a command. This number has been arrived at by
 # trial and error
@@ -315,6 +315,42 @@ class SMC100(SerialInstrument, Stage):
         #self._wait_states(STATE_NOT_REFERENCED_FROM_CONFIGURATION)
         time.sleep(1)
         self._send_cmd(command='OR' , axes=(1, 2), argument=None, expect_response=False, retry=False)
+    
+    def reset_and_configure_each(self, axis):
+        """
+        Configures the controller by resetting it and then asking it to load
+        stage parameters from an ESP compatible stage. This is then followed
+        by a homing action.
+        """
+        self._send_cmd('RS', axes=axis)
+        self._send_cmd('RS', axes=axis)
+
+        #self._wait_states(STATE_NOT_REFERENCED_FROM_RESET, ignore_disabled_states=True)
+        time.sleep(1)
+
+        stage = self._send_cmd(command='ID', axes=axis, argument='?')
+        self._logger.info(f'Found stage {stage}')
+
+        # enter config mode
+        self._send_cmd(command='PW', axes=axis, argument='?')
+        #self._wait_states(STATE_CONFIGURATION)
+        time.sleep(5)
+
+        #for axis in self.axis_names:
+
+        # load stage parameters
+        self._send_cmd('ZX', axes=axis, argument=1)
+
+        # enable stage ID check
+        self._send_cmd('ZX', axes=axis, argument=2)
+
+        # exit configuration mode
+        self._send_cmd('PW', axes=axis, argument=2)
+
+        # wait for us to get back into NOT REFERENCED state
+        #self._wait_states(STATE_NOT_REFERENCED_FROM_CONFIGURATION)
+        time.sleep(1)
+        self._send_cmd(command='OR' , axes=axis, argument=None)
         
 
     def get_position(self, axis=None, scale = 1e-3):
@@ -362,7 +398,7 @@ class SMC100(SerialInstrument, Stage):
 
         return reply
 
-    def move(self, pos, axis=None, relative=False, waitStop=True, scale = 1e-3):
+    def move(self, pos, axis=None, relative=False, waitStop=False, scale = 1e-3):
         pos = pos / scale
         if axis is None:
             axis = self.axis_names
