@@ -383,7 +383,7 @@ class StageUI(QtWidgets.QWidget, UiTools):
         # print(tosend)
         msg = tosend + '\r\n'
 
-        self.stage.ser.write(tosend)
+        # self.stage.ser.write(tosend)
         self.stage.ser.write(msg.encode())
 
         self.stage.ser.flush()
