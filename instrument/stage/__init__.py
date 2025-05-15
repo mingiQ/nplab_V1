@@ -150,6 +150,8 @@ class StageUI(QtWidgets.QWidget, UiTools):
     
     stage_limit = [10, 10, 10]
 
+    replytext = 'hi'
+
     def __init__(self, stage, parent=None, stage_step_min=1e-9, stage_step_max=1e-3, default_step=1e-6):
         assert isinstance(stage, Stage), "instrument must be a Stage"
         super(StageUI, self).__init__()
@@ -361,22 +363,37 @@ class StageUI(QtWidgets.QWidget, UiTools):
         self.command_entry.setPlaceholderText("Enter command...")
         send_button = QtWidgets.QPushButton("Send")
         send_button.clicked.connect(self.send_direct_command)
+
+        
+        self.command_output = QtWidgets.QLineEdit('', self)
+        self.command_output.setReadOnly(True)
+        self.command_output.setStyleSheet("background: #f0f0f0;")
         
         command_layout.addWidget(self.command_entry)
         command_layout.addWidget(send_button)
+        command_layout.addWidget(self.command_output)
         command_group.setLayout(command_layout)
         self.verticalLayout.addWidget(command_group)
 
 
+
     def send_direct_command(self):
+        self.stage.ser.flushOutput()
         tosend = self.command_entry.text()
-        print(tosend)
+        # print(tosend)
         msg = tosend + '\r\n'
 
-        #self.ser.write(tosend)
+        self.ser.write(tosend)
         self.stage.ser.write(msg.encode())
 
         self.stage.ser.flush()
+
+        self.replytext = self.stage._readline()
+        # print(self.replytext)
+        
+        self.command_output.setText(self.replytext)
+
+
     def button_pressed(self, *args, **kwargs):
         sender = self.sender()
         if sender in self.set_position_buttons:
@@ -477,6 +494,11 @@ class DummyStage(Stage):
     def get_qt_ui(self):
         #return StageUI(self,show_z_pos=False)
         return StageUI(self, stage_step_min=1E-7, stage_step_max=1e-2, default_step=1e-7)
+    
+    def _readline(self):
+        rando = np.random.randint(1,23)
+        line = '01PA0123' + str(rando)
+        return line
 
 
 
