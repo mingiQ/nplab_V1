@@ -148,7 +148,7 @@ class Stage(Instrument):
 class StageUI(QtWidgets.QWidget, UiTools):
     update_ui = QtCore.Signal([int], [str])
     
-    limit = [10, 10, 10]
+    stage_limit = [10, 10, 10]
 
     def __init__(self, stage, parent=None, stage_step_min=1e-9, stage_step_max=1e-3, default_step=1e-6):
         assert isinstance(stage, Stage), "instrument must be a Stage"
@@ -163,7 +163,7 @@ class StageUI(QtWidgets.QWidget, UiTools):
         self.update_positions()
 
     def move_axis_absolute(self, position, axis):
-        if position > self.limit[axis]:
+        if position > self.stage_limit[int(axis)]:
             return
         self.stage.move(position, axis=axis, relative=False)
         if type(axis) == str:
@@ -175,7 +175,7 @@ class StageUI(QtWidgets.QWidget, UiTools):
         current_position = self.stage.position[index]
         
         result = current_position - self.step_size[index]
-        if result > self.limit[axis]:
+        if result > self.stage_limit[int(axis)]:
             return
         if dir == -1:
             if result <= 0:
